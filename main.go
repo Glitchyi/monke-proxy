@@ -132,6 +132,10 @@ func sendAPIRequest(url string, key string) (string, error) {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+    w.Header().Set("Access-Control-Allow-Methods", "GET")
+	w.Header().Set("Content-Type", "application/json")
+
 	count, err := redisClient.Get(ctx, "type_speed").Result()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
