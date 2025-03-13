@@ -21,12 +21,18 @@ func main() {
 	// Load .env file if it exists
 	godotenv.Load()
 
+	url := os.Getenv("API_URL")
+	fmt.Println("URL:", url)
 	// Get configuration from environment variables
 	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisAddr = "localhost:6379"
-	}
+	fmt.Println("Redis address: ", redisAddr)
 
+	if redisAddr == "" {
+		redisAddr = "redis:6379"
+	}
+	redisAddr = "redis:6379"
+
+	fmt.Println("Redis address: ", redisAddr)
 	// Initialize Redis connection
 	redisClient = redis.NewClient(&redis.Options{
 		Addr:     redisAddr,
@@ -42,6 +48,7 @@ func main() {
   go func() {
     url := os.Getenv("API_URL")
     apekey := os.Getenv("APE_KEY")
+	fmt.Println("URL:", url)
     apiResponse, err := sendAPIRequest(url,apekey)
     fmt.Println("API Response:", apiResponse)
     if err != nil {
