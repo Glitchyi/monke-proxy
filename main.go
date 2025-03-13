@@ -132,14 +132,22 @@ func sendAPIRequest(url string, key string) (string, error) {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-    w.Header().Set("Access-Control-Allow-Methods", "GET")
-	w.Header().Set("Content-Type", "application/json")
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    
+    // Handle preflight OPTIONS request
+    if r.Method == "OPTIONS" {
+        w.WriteHeader(http.StatusOK)
+        return
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
 
-	count, err := redisClient.Get(ctx, "type_speed").Result()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-  json.NewEncoder(w).Encode(map[string]string{"wpm": count})
+    count, err := redisClient.Get(ctx, "type_speed").Result()
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    json.NewEncoder(w).Encode(map[string]string{"wpm": count})
 }
