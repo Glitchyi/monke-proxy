@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"time"
+	"log"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
@@ -17,22 +17,44 @@ import (
 var ctx = context.Background()
 var redisClient *redis.Client
 
+type Logger interface {
+	Info(msg string, args ...interface{})
+	Error(msg string, args ...interface{})
+	Debug(msg string, args ...interface{})
+	Warn(msg string, args ...interface{})
+}
+
+type defaultLogger struct{}
+
+func (l *defaultLogger) Info(msg string, args ...interface{}) {
+	log.Printf("\033[32m[INFO]\033[0m "+msg, args...)  // Green
+}
+
+func (l *defaultLogger) Error(msg string, args ...interface{}) {
+	log.Printf("\033[31m[ERROR]\033[0m "+msg, args...) // Red
+}
+
+func (l *defaultLogger) Debug(msg string, args ...interface{}) {
+	log.Printf("\033[36m[DEBUG]\033[0m "+msg, args...) // Cyan
+}
+
+func (l *defaultLogger) Warn(msg string, args ...interface{}) {
+	log.Printf("\033[33m[WARN]\033[0m "+msg, args...)  // Yellow
+}
+
+var logger Logger = &defaultLogger{}
+
 func main() {
 	// Load .env file if it exists
 	godotenv.Load()
 
-	url := os.Getenv("API_URL")
-	fmt.Println("URL:", url)
 	// Get configuration from environment variables
 	redisAddr := os.Getenv("REDIS_ADDR")
-	fmt.Println("Redis address: ", redisAddr)
-
 	if redisAddr == "" {
 		redisAddr = "redis:6379"
 	}
-	redisAddr = "redis:6379"
+	logger.Info("Redis address config: %s", redisAddr)
 
-	fmt.Println("Redis address: ", redisAddr)
 	// Initialize Redis connection
 	redisClient = redis.NewClient(&redis.Options{
 		Addr:     redisAddr,
@@ -40,56 +62,48 @@ func main() {
 		DB:       0,
 	})
 
+	logger.Info("Connecting to Redis at %s", redisAddr)
+
 	// Verify Redis connection
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		panic(fmt.Sprintf("Redis connection failed: %v", err))
 	}
 
-  go func() {
-    url := os.Getenv("API_URL")
-    apekey := os.Getenv("APE_KEY")
-	fmt.Println("URL:", url)
-    apiResponse, err := sendAPIRequest(url,apekey)
-    fmt.Println("API Response:", apiResponse)
-    if err != nil {
-      fmt.Println("API request error:", err)
-      return
-    }
-    redisClient.Set(ctx, "type_speed", apiResponse, 0)
-  }()
 	// Start HTTP server in goroutine
 	go func() {
 		http.HandleFunc("/", handler)
-		fmt.Println("Server starting on :8080")
+		logger.Warn("Starting server on :8080")
 		http.ListenAndServe(":8080", nil)
 	}()
 
-	// Configure cron job
+	// Create cron job
 	c := cron.New()
-	c.AddFunc("@hourly", func() {
+	apekey := os.Getenv("APE_KEY")
+	url := os.Getenv("API_URL")
+	
+	// Initialize counter
+	redisClient.Set(ctx, "type_speed", 0, 0)
+	
+	// Start cron job
+	c.AddFunc("@every 5s", func() {
 		// Get value from Redis
 		val, err := redisClient.Get(ctx, "type_speed").Result()
 		if err != nil {
-			fmt.Println("Cron error:", err)
+			logger.Error("Redis get error: %v", err)
 			return
 		}
-
+		redisClient.Set(ctx, "type_speed",val, 0)
+		
 		// Send request to API
-    url := os.Getenv("API_URL")
-    apekey := os.Getenv("APE_KEY")
 		apiResponse, err := sendAPIRequest(url,apekey)
 		if err != nil {
-			fmt.Println("API request error:", err)
+			logger.Error("API request error:", err)
 			return
 		}
 
-		fmt.Printf("Cron executed at %s - Counter: %s - API Response: %s\n",
-			time.Now().Format(time.RFC3339), val, apiResponse)
-		redisClient.Set(ctx, "type_speed", 0, 0)
+		logger.Info("Cron executed set val: %s\n",apiResponse)
 	})
 
-	// Initialize counter
-	redisClient.Set(ctx, "type_speed", 0, 0)
 
 	c.Start()
 	select {} // Block main goroutine
@@ -120,9 +134,9 @@ func sendAPIRequest(url string, key string) (string, error) {
   }
   
   if data, ok := result["data"]; ok {
+	 fmt.Println(data) 
     if dataMap, ok := data.(map[string]interface{}); ok {
       if wpm, ok := dataMap["wpm"].(float64); ok {
-        fmt.Println("WPM:", wpm)
         return fmt.Sprintf("%.2f", wpm), nil
       }
     }
