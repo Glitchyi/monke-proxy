@@ -86,16 +86,11 @@ func main() {
 	
 	// Start cron job
 	c.AddFunc("@every 5s", func() {
-		// Get value from Redis
-		val, err := redisClient.Get(ctx, "type_speed").Result()
-		if err != nil {
-			logger.Error("Redis get error: %v", err)
-			return
-		}
-		redisClient.Set(ctx, "type_speed",val, 0)
 		
 		// Send request to API
 		apiResponse, err := sendAPIRequest(url,apekey)
+
+		redisClient.Set(ctx, "type_speed",apiResponse, 0)
 		if err != nil {
 			logger.Error("API request error:", err)
 			return
