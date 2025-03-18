@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
-	"log"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
@@ -105,7 +105,7 @@ func main() {
 }
 
 func sendAPIRequest(url string, key string) (string, error) {
-	req, err := http.NewRequest("GET",url, nil)
+  req, err := http.NewRequest("GET",url, nil)
   if err != nil {
     return "Unable to create Request", err
   }
@@ -113,10 +113,10 @@ func sendAPIRequest(url string, key string) (string, error) {
   client := &http.Client{}
   resp, err := client.Do(req)
 
-	if err != nil {
-		return "Request Failed", err
-	}
-	defer resp.Body.Close()
+  if err != nil {
+    return "Request Failed", err
+  }
+  defer resp.Body.Close()
 
   body, err := io.ReadAll(resp.Body)
   if err != nil {
@@ -128,9 +128,14 @@ func sendAPIRequest(url string, key string) (string, error) {
     return "", err
   }
   
+  // Log the complete response data using your custom logger
+
+  
   if data, ok := result["data"]; ok {
-	 fmt.Println(data) 
     if dataMap, ok := data.(map[string]interface{}); ok {
+      // Log the data portion specifically
+
+      
       if wpm, ok := dataMap["wpm"].(float64); ok {
         return fmt.Sprintf("%.2f", wpm), nil
       }
